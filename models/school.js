@@ -1,29 +1,27 @@
-const db=require("../config/db");
-const addSchool = (name, address, latitude, longitude, callback) => {
-    const query = `INSERT INTO schools (name, address, latitude, longitude) VALUES (?, ?, ?, ?)`;
-    
-    db.query(query, [name, address, latitude, longitude], (err, results) => {
-      if (err) {
-        callback(err, null);
-        return;
-      }
-      callback(null, results.insertId);
+const db = require("../config/db");
+
+const addSchool = (name, address, latitude, longitude) => {
+  const query = `INSERT INTO schools (name, address, latitude, longitude) VALUES (?, ?, ?, ?)`;
+
+  // Use promise to handle the insert operation
+  return db.query(query, [name, address, latitude, longitude])
+    .then(([results]) => results.insertId)  // Return the inserted ID
+    .catch(err => {
+      throw err;
     });
-  };
-  const getAllSchools = (callback) => {
-    const query = `SELECT * FROM schools`;
-  
-    db.query(query, (err, results) => {
-      if (err) {
-        callback(err, null);
-        return;
-      }
-      callback(null, results);
+};
+
+const getAllSchools = () => {
+  const query = `SELECT * FROM schools`;
+
+  return db.query(query)  // Returns a promise
+    .then(([results]) => results)
+    .catch(err => {
+      throw err;
     });
-  };
-  
-  // Exporting functions to be used in controllers
-  module.exports = {
-    addSchool,
-    getAllSchools,
-  };
+};
+
+module.exports = {
+  addSchool,
+  getAllSchools,
+};

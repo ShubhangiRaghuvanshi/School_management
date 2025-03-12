@@ -4,6 +4,7 @@ const bodyParser = require('body-parser');
 const cors = require('cors');
 const schoolRoutes = require('./routes/schoolRoutes');
 const db = require('./models/school');
+require('dotenv').config();
 
 // Initialize express app
 const app = express();
