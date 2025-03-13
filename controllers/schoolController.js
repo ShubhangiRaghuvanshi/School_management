@@ -1,5 +1,19 @@
-const schoolModel = require('../models/school');
+const mysql = require('mysql2');
+require('dotenv').config();
 
+// Create MySQL connection
+const connection = mysql.createConnection({
+  host: process.env.DB_HOST,
+  user: process.env.DB_USER,
+  password: process.env.DB_PASSWORD,
+  database: process.env.DB_NAME,
+  port: process.env.DB_PORT || 3306,
+  ssl: { 
+    rejectUnauthorized: false  // Fix self-signed certificate issue
+  }
+});
+
+// Function to add a school
 exports.addSchool = async (req, res) => {
   const { name, address, latitude, longitude } = req.body;
 
@@ -13,18 +27,28 @@ exports.addSchool = async (req, res) => {
   }
 
   try {
-    // Call the model function to add school
-    const schoolId = await schoolModel.addSchool(name, address, latitude, longitude);
+    // Insert school into the database
+    const sql = 'INSERT INTO schools (name, address, latitude, longitude) VALUES (?, ?, ?, ?)';
+    const values = [name, address, latitude, longitude];
 
-    // Log the success and return the response
-    console.log("School added successfully with ID:", schoolId);
-    res.status(200).json({ message: 'School added successfully', id: schoolId });
+    connection.query(sql, values, (err, result) => {
+      if (err) {
+        console.error('❌ Error occurred while adding school:', err);
+        return res.status(500).json({ error: 'Database error' });
+      }
+
+      // Log the success and return the response
+      console.log('✅ School added successfully with ID:', result.insertId);
+      res.status(200).json({ message: 'School added successfully', id: result.insertId });
+    });
+
   } catch (err) {
-    console.error("Error occurred while adding school:", err);
+    console.error('❌ Error occurred while adding school:', err);
     return res.status(500).json({ error: 'Database error' });
   }
 };
 
+// Function to list all schools
 exports.listSchools = async (req, res) => {
   const { userLatitude, userLongitude } = req.query;
 
@@ -38,51 +62,50 @@ exports.listSchools = async (req, res) => {
   }
 
   try {
-    // Call the model function to get all schools
-    const schools = await schoolModel.getAllSchools();
+    // Get all schools from the database
+    const sql = 'SELECT * FROM schools';
 
-    // Log the fetched schools
-    console.log("Fetched schools from the database:", schools);
+    connection.query(sql, (err, results) => {
+      if (err) {
+        console.error("❌ Error occurred while fetching schools:", err);
+        return res.status(500).json({ error: 'Database error' });
+      }
 
-    // Calculate the distance for each school
-    const schoolsWithDistance = schools.map(school => {
-      const distance = calculateDistance(
-        userLatitude, userLongitude,
-        school.latitude, school.longitude
-      );
-      school.distance = distance;
-      return school;
+      // Log the fetched schools
+      console.log("✅ Fetched schools from the database:", results);
+
+      // Calculate the distance for each school
+      const schoolsWithDistance = results.map(school => {
+        const distance = calculateDistance(
+          userLatitude, userLongitude,
+          school.latitude, school.longitude
+        );
+        school.distance = distance;
+        return school;
+      });
+
+      // Sort schools by distance
+      schoolsWithDistance.sort((a, b) => a.distance - b.distance);
+
+      // Return sorted schools with distances
+      console.log("✅ Sorted schools by distance:", schoolsWithDistance);
+      res.status(200).json(schoolsWithDistance);
     });
 
-    // Log the schools with calculated distances
-    console.log("Schools with calculated distances:", schoolsWithDistance);
-
-    // Sort the schools by distance (ascending)
-    schoolsWithDistance.sort((a, b) => a.distance - b.distance);
-
-    // Log the sorted list of schools
-    console.log("Sorted schools by distance:", schoolsWithDistance);
-
-    // Send the sorted list of schools with distances
-    res.status(200).json(schoolsWithDistance);
   } catch (err) {
-    console.error("Error occurred while fetching schools:", err);
+    console.error("❌ Error occurred while fetching schools:", err);
     return res.status(500).json({ error: 'Database error' });
   }
 };
 
 // Haversine formula to calculate distance
 function calculateDistance(lat1, lon1, lat2, lon2) {
-  const R = 6371; // Earth's radius in km
+  const R = 6371; // Radius of the Earth in km
   const dLat = (lat2 - lat1) * Math.PI / 180;
   const dLon = (lon2 - lon1) * Math.PI / 180;
-  const a = 
-    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
-    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+            Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+            Math.sin(dLon / 2) * Math.sin(dLon / 2);
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  const distance = R * c; // Distance in km
-  return distance;
+  return R * c;  // Distance in km
 }
-
-
